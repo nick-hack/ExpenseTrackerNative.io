@@ -13,7 +13,7 @@ import { MaterialIcons } from '@expo/vector-icons'
 
 const Home = ({ navigation, route }) => {
 
-  const employeeName = "Rahul Sharma"
+  const employeeName = "Aniket Kavathekar"
 
   const today = new Date().toLocaleDateString('en-IN', {
     weekday: 'long',

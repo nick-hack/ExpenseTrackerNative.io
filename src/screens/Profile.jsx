@@ -14,8 +14,8 @@ import { MaterialIcons } from '@expo/vector-icons'
 const Profile = ({ navigation }) => {
 
   const user = {
-    name: "Rahul Sharma",
-    email: "rahul@email.com",
+    name: "Aniket Kavathekar",
+    email: "aniketk@email.com",
     income: 75000,
     expense: 32000
   }
