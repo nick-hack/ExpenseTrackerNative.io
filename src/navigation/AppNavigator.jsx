@@ -15,6 +15,10 @@ import Category from '../screens/Category'
 import AddCategory from '../screens/AddCategory'
 import CategoryTypeList from '../screens/CategoryType/CategoryTypeList'
 import AccountType from '../screens/AccountType/AccountType'
+import Reports from '../screens/Profiles/Reports'
+import EditProfile from '../screens/EditProfile'
+import AddExpense from '../screens/AddExpense'
+
 
 const Tab = createBottomTabNavigator()
 const Stack = createNativeStackNavigator()
@@ -27,6 +31,7 @@ function MyTabs() {
     Home: 'home',
     Insights: 'insights',
     Category: 'category',
+    CategoryType: 'view-module',
     AccountType: 'account-balance',
   }
 
@@ -53,6 +58,7 @@ function MyTabs() {
       <Tab.Screen name="Home" component={Home} />
       <Tab.Screen name="Insights" component={Insights} />
       <Tab.Screen name="Category" component={Category} />
+      <Tab.Screen name="CategoryType" component={CategoryTypeList} />
       <Tab.Screen name="AccountType" component={AccountType} />
     </Tab.Navigator>
   )
@@ -72,12 +78,16 @@ export default function AppNavigator() {
       {/* Main Tabs */}
       <Stack.Screen name="Tabs" component={MyTabs} />
 
+      {/* Profile Buttons */}
+      <Stack.Screen name="Reports" component={Reports} />
+
       {/* Extra Screens */}
       <Stack.Screen name="Profile" component={Profile} />
       <Stack.Screen name="Create" component={Create} />
       <Stack.Screen name="AddCategory" component={AddCategory} />
       <Stack.Screen name="CategoryTypeList" component={CategoryTypeList} />
-
+      <Stack.Screen name="EditProfile" component={EditProfile} />
+      <Stack.Screen name="AddExpense" component={AddExpense} />
     </Stack.Navigator>
   )
 }
