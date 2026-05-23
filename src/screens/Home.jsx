@@ -1,5 +1,4 @@
 // screens/Home.js
-
 import React, { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
@@ -7,13 +6,13 @@ import {
   FlatList,
   StatusBar,
   ActivityIndicator,
-  Text,
   RefreshControl,
+  BackHandler,
 } from "react-native";
 
+import { useFocusEffect } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import { BASE_URL } from "../../Config";
 
 import Navbar from "../components/Navbar";
@@ -23,7 +22,7 @@ import TransactionItem from "../components/TransactionItem";
 import FloatingButton from "../components/FloatingButton";
 import GreetingSection from "../components/GreetingSection";
 
-const Home = ({ navigation, route }) => {
+const Home = ({ navigation }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -40,117 +39,111 @@ const Home = ({ navigation, route }) => {
     year: "numeric",
   });
 
+  /* ================= BACK BUTTON FIX ================= */
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        // ✅ Prevent going back or logout
+        return true;
+      };
+
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onBackPress
+      );
+
+      return () => subscription.remove(); // ✅ CORRECT FIX
+    }, [])
+  );
+
   useEffect(() => {
     fetchUserData();
   }, []);
 
-  /* ================= USER API ================= */
   const fetchUserData = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
 
       if (!token) {
-        navigation.replace("Login");
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        });
         return;
       }
 
       const response = await fetch(`${BASE_URL}/getUserById`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const json = await response.json();
 
-      if (
-        json?.status === 200 &&
-        Array.isArray(json?.data) &&
-        json.data.length > 0
-      ) {
+      if (json?.status === 200 && json?.data?.length > 0) {
         setUser(json.data[0]);
-
         await fetchExpenses(token);
       } else {
-        navigation.replace("Login");
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        });
       }
-    } catch (error) {
-      console.log("USER API ERROR =>", error);
-      navigation.replace("Login");
+    } catch (e) {
+      console.log(e);
     } finally {
       setLoading(false);
     }
   };
 
-  /* ================= EXPENSE API ================= */
   const fetchExpenses = async (token) => {
     try {
-      const response = await fetch(
-        `${BASE_URL}/getAllExpensesByUserId`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch(`${BASE_URL}/getAllExpensesByUserId`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       const json = await response.json();
 
       if (json?.status === 200) {
-        const apiData = json?.data;
+        const data = json?.data;
 
-        setTotalIncome(parseFloat(apiData?.totalIncome || 0));
-        setTotalExpense(parseFloat(apiData?.totalExpense || 0));
-        setTotalBalance(parseFloat(apiData?.Remaining_Amount || 0));
+        setTotalIncome(Number(data?.totalIncome || 0));
+        setTotalExpense(Number(data?.totalExpense || 0));
+        setTotalBalance(Number(data?.Remaining_Amount || 0));
 
-        const formatted = Array.isArray(apiData?.data)
-          ? apiData.data.map((item) => ({
+        const formatted = Array.isArray(data?.data)
+          ? data.data.map((item) => ({
               id: String(item?.id),
               title: item?.Title || "No Title",
               amount:
-                parseFloat(item?.Income || 0) > 0
-                  ? parseFloat(item?.Income || 0)
-                  : -parseFloat(item?.Expenses || 0),
+                Number(item?.Income || 0) > 0
+                  ? Number(item?.Income || 0)
+                  : -Number(item?.Expenses || 0),
               date: item?.Expenses_date || "",
               category: item?.category_name || "Other",
             }))
           : [];
 
         setTransactions(formatted);
-      } else {
-        setTransactions([]);
       }
-    } catch (error) {
-      console.log("EXPENSE API ERROR =>", error);
-      setTransactions([]);
+    } catch (e) {
+      console.log(e);
     }
   };
 
-  /* ================= PULL TO REFRESH ================= */
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-
-    try {
-      const token = await AsyncStorage.getItem("token");
-
-      if (token) {
-        await fetchExpenses(token);
-      }
-    } catch (error) {
-      console.log("REFRESH ERROR =>", error);
-    }
-
+    const token = await AsyncStorage.getItem("token");
+    if (token) await fetchExpenses(token);
     setRefreshing(false);
   }, []);
 
-  /* ================= FORMAT ================= */
-  const formatCurrency = (amount) =>
-    `₹ ${Math.abs(amount).toLocaleString("en-IN")}`;
+  const formatCurrency = (amount) => {
+    const value = Math.abs(amount).toLocaleString("en-IN");
+    return amount < 0 ? `₹ ${value}` : `₹ ${value}`;
+  };
 
-  /* ================= LOADER ================= */
+  const getBalanceColor = (value) =>
+    Number(value) < 0 ? "#E74C3C" : "#4A90E2";
+
   if (loading) {
     return (
       <View style={styles.loader}>
@@ -171,6 +164,7 @@ const Home = ({ navigation, route }) => {
         <BalanceCard
           totalBalance={totalBalance}
           formatCurrency={formatCurrency}
+          balanceColor={getBalanceColor(totalBalance)}
         />
 
         <SummaryCards
@@ -179,48 +173,19 @@ const Home = ({ navigation, route }) => {
           formatCurrency={formatCurrency}
         />
 
-        {/* ================= FLATLIST ================= */}
-        {transactions.length === 0 ? (
-          <FlatList
-            data={[]}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={["#4A90E2"]}
-                tintColor="#4A90E2"
-              />
-            }
-            ListEmptyComponent={
-              <Text style={{ textAlign: "center", marginTop: 30, color: "#777" }}>
-                No transactions found
-              </Text>
-            }
-          />
-        ) : (
-          <FlatList
-            data={transactions}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TransactionItem item={item} formatCurrency={formatCurrency} />
-            )}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={["#4A90E2"]}
-                tintColor="#4A90E2"
-              />
-            }
-          />
-        )}
+        <FlatList
+          data={transactions}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TransactionItem item={item} formatCurrency={formatCurrency} />
+          )}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        />
       </View>
 
-      {/* ✅ FIXED NAVIGATION */}
-      <FloatingButton
-        onPress={() => navigation.navigate("AddExpense")}
-      />
+      <FloatingButton onPress={() => navigation.navigate("AddExpense")} />
     </SafeAreaView>
   );
 };
@@ -247,5 +212,11 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
+  },
+
+  emptyText: {
+    textAlign: "center",
+    marginTop: 30,
+    color: "#777",
   },
 });

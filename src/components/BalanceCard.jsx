@@ -1,32 +1,29 @@
 // components/BalanceCard.js
 
 import React from "react";
+import { View, Text, StyleSheet } from "react-native";
 
-import {
-  View,
-  Text,
-  StyleSheet,
-} from "react-native";
+const BalanceCard = ({ totalBalance, formatCurrency }) => {
+  const balance = Number(totalBalance || 0);
 
-const BalanceCard = ({
-  totalBalance,
-  formatCurrency,
-}) => {
+  const isNegative = balance < 0;
 
   return (
-
-    <View style={styles.card}>
-
-      <Text style={styles.label}>
-        Total Balance
-      </Text>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: isNegative ? "#E74C3C" : "#4A90E2",
+        },
+      ]}
+    >
+      <Text style={styles.label}>Total Balance</Text>
 
       <Text style={styles.amount}>
-        {formatCurrency(
-          totalBalance
-        )}
+        {balance < 0
+          ? `-₹ ${Math.abs(balance).toLocaleString("en-IN")}`
+          : `₹ ${balance.toLocaleString("en-IN")}`}
       </Text>
-
     </View>
   );
 };
@@ -34,9 +31,7 @@ const BalanceCard = ({
 export default BalanceCard;
 
 const styles = StyleSheet.create({
-
   card: {
-    backgroundColor: "#4A90E2",
     padding: 30,
     borderRadius: 20,
     marginVertical: 20,
@@ -54,5 +49,4 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginTop: 8,
   },
-
 });

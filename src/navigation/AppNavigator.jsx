@@ -18,6 +18,8 @@ import AccountType from '../screens/AccountType/AccountType'
 import Reports from '../screens/Profiles/Reports'
 import EditProfile from '../screens/EditProfile'
 import AddExpense from '../screens/AddExpense'
+import ForgotPasswordScreen from '../components/ForgotPasswordScreen'
+import MobileLoginScreen from '../components/MobileLoginScreen'
 
 
 const Tab = createBottomTabNavigator()
@@ -88,6 +90,8 @@ export default function AppNavigator() {
       <Stack.Screen name="CategoryTypeList" component={CategoryTypeList} />
       <Stack.Screen name="EditProfile" component={EditProfile} />
       <Stack.Screen name="AddExpense" component={AddExpense} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+<Stack.Screen name="MobileLogin" component={MobileLoginScreen} />
     </Stack.Navigator>
   )
 }
