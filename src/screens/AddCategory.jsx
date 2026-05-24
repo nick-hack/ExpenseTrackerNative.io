@@ -1,147 +1,402 @@
-import React, { useState } from 'react'
+import React, {
+  useState,
+  useEffect
+} from 'react'
+
 import {
   StyleSheet,
-  Text,
+  ScrollView,
   View,
-  TextInput,
-  TouchableOpacity,
-  ScrollView
+  Alert
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { MaterialIcons } from '@expo/vector-icons'
-import { LinearGradient } from 'expo-linear-gradient'
 
-const categoryTypes = ['Income', 'Expense']
+import {
+  SafeAreaView
+} from 'react-native-safe-area-context'
+
+import AsyncStorage from '@react-native-async-storage/async-storage'
+
+import Header from '../components/Header'
+import CustomInput from '../components/CustomInput'
+import CategoryDropdown from '../components/CategoryDropdown'
+import IconSelector from '../components/IconSelector'
+import SaveButton from '../components/SaveButton'
+
+import { BASE_URL } from '../../Config'
 
 const iconList = [
-  'restaurant',
-  'home',
-  'flight',
-  'shopping-cart',
-  'card-giftcard',
-  'emoji-events',
-  'local-offer',
-  'payments',
-  'account-balance-wallet',
-  'local-mall',
-  'medical-services',
-  'school'
+  { id: 1, icon: 'restaurant' },
+  { id: 2, icon: 'home' },
+  { id: 3, icon: 'flight' },
+  { id: 4, icon: 'shopping-cart' },
+  { id: 5, icon: 'card-giftcard' },
+  { id: 6, icon: 'emoji-events' },
+  { id: 7, icon: 'local-offer' },
+  { id: 8, icon: 'payments' },
+  { id: 9, icon: 'account-balance-wallet' },
+  { id: 10, icon: 'local-mall' },
+  { id: 11, icon: 'medical-services' },
+  { id: 12, icon: 'school' }
 ]
 
-const AddCategory = ({ navigation }) => {
+const AddCategory = ({
+  navigation
+}) => {
 
-  const [categoryName, setCategoryName] = useState('')
-  const [categoryType, setCategoryType] = useState('Expense')
-  const [description, setDescription] = useState('')
-  const [selectedIcon, setSelectedIcon] = useState('restaurant')
-  const [showDropdown, setShowDropdown] = useState(false)
+  const [categoryTypes,
+    setCategoryTypes] = useState([])
 
-  const handleSave = () => {
-    if (!categoryName) return
+  const [categoryName,
+    setCategoryName] = useState('')
 
-    const newCategory = {
-      id: Date.now().toString(),
-      name: categoryName,
-      type: categoryType,
-      description,
-      icon: selectedIcon
+  const [categoryType,
+    setCategoryType] = useState(null)
+
+  const [description,
+    setDescription] = useState('')
+
+  const [selectedIcon,
+    setSelectedIcon] =
+      useState(iconList[0])
+
+  const [showDropdown,
+    setShowDropdown] =
+      useState(false)
+
+  const [loading,
+    setLoading] =
+      useState(false)
+
+  // =========================
+  // GET CATEGORY TYPES
+  // =========================
+
+  useEffect(() => {
+    fetchCategoryTypes()
+  }, [])
+
+  const fetchCategoryTypes =
+    async () => {
+
+    try {
+
+      setLoading(true)
+
+      const token =
+        await AsyncStorage.getItem(
+          'token'
+        )
+
+      if (!token) {
+
+        Alert.alert(
+          'Session Expired',
+          'Please login again'
+        )
+
+        navigation.replace(
+          'Login'
+        )
+
+        return
+      }
+
+      const response =
+        await fetch(
+          `${BASE_URL}/getCategoryByUserId`,
+          {
+            method: 'GET',
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+              Accept:
+                'application/json',
+            },
+          }
+        )
+
+      const result =
+        await response.json()
+
+      console.log(
+        'Category API =>',
+        result
+      )
+
+      if (
+        response.ok &&
+        result?.status === 200
+      ) {
+
+        const uniqueTypes =
+          result?.data?.count
+            ?.filter(
+              (
+                value,
+                index,
+                self
+              ) =>
+                index ===
+                self.findIndex(
+                  (t) =>
+                    t.category_type_id ===
+                    value.category_type_id
+                )
+            )
+            ?.map((item) => ({
+              id:
+                item.category_type_id,
+
+              name:
+                item.type_name
+            }))
+
+        setCategoryTypes(
+          uniqueTypes || []
+        )
+
+        if (
+          uniqueTypes.length > 0
+        ) {
+
+          setCategoryType(
+            uniqueTypes[0]
+          )
+        }
+
+      } else {
+
+        Alert.alert(
+          'Error',
+          result?.message ||
+            'Unable to load category types'
+        )
+      }
+
+    } catch (error) {
+
+      console.log(
+        'Category Error =>',
+        error
+      )
+
+      Alert.alert(
+        'Error',
+        'Unable to connect server'
+      )
+
+    } finally {
+
+      setLoading(false)
+    }
+  }
+
+  // =========================
+  // SAVE CATEGORY
+  // =========================
+
+  const handleSave =
+    async () => {
+
+    if (!categoryName) {
+
+      Alert.alert(
+        'Validation',
+        'Please enter category name'
+      )
+
+      return
     }
 
-    console.log(newCategory)
+    if (!categoryType) {
 
-    navigation.goBack()
+      Alert.alert(
+        'Validation',
+        'Please select category type'
+      )
+
+      return
+    }
+
+    try {
+
+      setLoading(true)
+
+      const token =
+        await AsyncStorage.getItem(
+          'token'
+        )
+
+      const requestBody = {
+
+        category_type_id:
+          categoryType.id,
+
+        category_name:
+          categoryName,
+
+        Cdescription:
+          description,
+
+        IconsId:
+          selectedIcon.id
+      }
+
+      console.log(
+        'Request Body =>',
+        requestBody
+      )
+
+      const response =
+        await fetch(
+          `${BASE_URL}/insertCategory`,
+          {
+            method: 'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json',
+
+              Accept:
+                'application/json',
+
+              Authorization:
+                `Bearer ${token}`
+            },
+
+            body: JSON.stringify(
+              requestBody
+            )
+          }
+        )
+
+      const result =
+        await response.json()
+
+      console.log(
+        'Insert Result =>',
+        result
+      )
+
+      if (
+        response.ok &&
+        result?.status === 200
+      ) {
+
+        Alert.alert(
+          'Success',
+          result?.message ||
+            'Category inserted successfully'
+        )
+
+        navigation.goBack()
+
+      } else {
+
+        Alert.alert(
+          'Error',
+          result?.message ||
+            'Something went wrong'
+        )
+      }
+
+    } catch (error) {
+
+      console.log(
+        'Insert Error =>',
+        error
+      )
+
+      Alert.alert(
+        'Error',
+        'Unable to connect server'
+      )
+
+    } finally {
+
+      setLoading(false)
+    }
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      
-      {/* Header */}
-      <LinearGradient
-        colors={['#4A90E2', '#6C63FF']}
-        style={styles.headerBox}
+
+    <SafeAreaView
+      style={styles.container}
+    >
+
+      {/* HEADER */}
+      <Header title="Create Category" />
+
+      <ScrollView
+        showsVerticalScrollIndicator={
+          false
+        }
       >
-        <Text style={styles.header}>Create Category</Text>
-      </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-
-        {/* Category Name */}
-        <Text style={styles.label}>Category Name</Text>
-        <TextInput
+        {/* CATEGORY NAME */}
+        <CustomInput
+          label="Category Name"
           placeholder="Enter category name"
-          style={styles.input}
           value={categoryName}
-          onChangeText={setCategoryName}
+          onChangeText={
+            setCategoryName
+          }
         />
 
-        {/* Category Type Dropdown */}
-        <Text style={styles.label}>Category Type</Text>
-        <TouchableOpacity
-          style={styles.dropdown}
-          onPress={() => setShowDropdown(!showDropdown)}
-        >
-          <Text style={styles.dropdownText}>{categoryType}</Text>
-          <MaterialIcons name="arrow-drop-down" size={24} />
-        </TouchableOpacity>
+        {/* CATEGORY DROPDOWN */}
+        <CategoryDropdown
+          categoryType={categoryType}
+          categoryTypes={
+            categoryTypes
+          }
+          showDropdown={
+            showDropdown
+          }
+          setShowDropdown={
+            setShowDropdown
+          }
+          setCategoryType={
+            setCategoryType
+          }
+        />
 
-        {showDropdown && (
-          <View style={styles.dropdownList}>
-            {categoryTypes.map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={styles.dropdownItem}
-                onPress={() => {
-                  setCategoryType(type)
-                  setShowDropdown(false)
-                }}
-              >
-                <Text style={styles.dropdownItemText}>{type}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* Description */}
-        <Text style={styles.label}>Description</Text>
-        <TextInput
+        {/* DESCRIPTION */}
+        <CustomInput
+          label="Description"
           placeholder="Enter description"
-          style={[styles.input, { height: 90 }]}
-          multiline
           value={description}
-          onChangeText={setDescription}
+          onChangeText={
+            setDescription
+          }
+          multiline
+          height={90}
         />
 
-        {/* Icon Selection */}
-        <Text style={styles.label}>Select Icon</Text>
-        <View style={styles.iconGrid}>
-          {iconList.map((icon) => {
-            const isSelected = selectedIcon === icon
-            return (
-              <TouchableOpacity
-                key={icon}
-                style={[
-                  styles.iconCard,
-                  isSelected && styles.selectedIcon
-                ]}
-                onPress={() => setSelectedIcon(icon)}
-              >
-                <MaterialIcons
-                  name={icon}
-                  size={26}
-                  color={isSelected ? '#4A90E2' : '#777'}
-                />
-              </TouchableOpacity>
-            )
-          })}
-        </View>
+        {/* ICONS */}
+        <IconSelector
+          iconList={iconList}
+          selectedIcon={
+            selectedIcon
+          }
+          setSelectedIcon={
+            setSelectedIcon
+          }
+        />
 
-        <View style={{ height: 120 }} />
+        <View
+          style={{
+            height: 120
+          }}
+        />
+
       </ScrollView>
 
-      {/* Save Button */}
-      <TouchableOpacity style={styles.fab} onPress={handleSave}>
-        <MaterialIcons name="check" size={28} color="#fff" />
-      </TouchableOpacity>
+      {/* SAVE BUTTON */}
+      <SaveButton
+        loading={loading}
+        onPress={handleSave}
+      />
 
     </SafeAreaView>
   )
@@ -149,110 +404,11 @@ const AddCategory = ({ navigation }) => {
 
 export default AddCategory
 
-
 const styles = StyleSheet.create({
 
   container: {
     flex: 1,
     backgroundColor: '#F2F5F9'
-  },
-
-  headerBox: {
-    padding: 25,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30
-  },
-
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff'
-  },
-
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 20,
-    marginLeft: 20,
-    marginBottom: 8,
-    color: '#555'
-  },
-
-  input: {
-    backgroundColor: '#fff',
-    marginHorizontal: 20,
-    padding: 18,
-    borderRadius: 20,
-    fontSize: 16,
-    elevation: 3
-  },
-
-  dropdown: {
-    backgroundColor: '#fff',
-    marginHorizontal: 20,
-    padding: 18,
-    borderRadius: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    elevation: 3
-  },
-
-  dropdownText: {
-    fontSize: 16
-  },
-
-  dropdownList: {
-    backgroundColor: '#fff',
-    marginHorizontal: 20,
-    borderRadius: 20,
-    marginTop: 5,
-    elevation: 5
-  },
-
-  dropdownItem: {
-    padding: 15,
-    borderBottomWidth: 1,
-    borderColor: '#eee'
-  },
-
-  dropdownItemText: {
-    fontSize: 14
-  },
-
-  iconGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginHorizontal: 20
-  },
-
-  iconCard: {
-    width: '22%',
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 20,
-    alignItems: 'center',
-    marginBottom: 15,
-    elevation: 3
-  },
-
-  selectedIcon: {
-    borderWidth: 2,
-    borderColor: '#4A90E2'
-  },
-
-  fab: {
-    position: 'absolute',
-    bottom: 30,
-    right: 30,
-    backgroundColor: '#4A90E2',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8
   }
 
 })

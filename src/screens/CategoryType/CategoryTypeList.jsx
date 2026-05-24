@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   StyleSheet,
   Text,
@@ -6,32 +6,96 @@ import {
   FlatList,
   TouchableOpacity,
   Modal,
-  TextInput
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  RefreshControl
 } from 'react-native'
+
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { BASE_URL } from '../../../Config';
 
-const CategoryTypeList = () => {
+const CategoryTypeList = ({ navigation }) => {
 
-  const [categoryTypes, setCategoryTypes] = useState([
-    { id: '1', name: 'Expense', description: 'All expense categories' },
-    { id: '2', name: 'Income', description: 'All income categories' }
-  ])
+  const [categoryTypes, setCategoryTypes] = useState([])
+  const [loading, setLoading] = useState(false)
+
+  // 🔥 Pull-to-refresh state
+  const [refreshing, setRefreshing] = useState(false)
 
   const [modalVisible, setModalVisible] = useState(false)
   const [typeName, setTypeName] = useState('')
   const [description, setDescription] = useState('')
 
+  useEffect(() => {
+    fetchCategoryTypes()
+  }, [])
+
+  /* ================= FETCH API ================= */
+  const fetchCategoryTypes = async () => {
+    try {
+      setLoading(true)
+
+      const token = await AsyncStorage.getItem('token')
+
+      if (!token) {
+        Alert.alert("Session Expired", "Please login again")
+        navigation.replace("Login")
+        return
+      }
+
+      const response = await fetch(`${BASE_URL}/getCatTypeByUserId`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      })
+
+      const text = await response.text()
+
+      if (!text) {
+        setCategoryTypes([])
+        return
+      }
+
+      const json = JSON.parse(text)
+
+      if (json.status === 200) {
+        setCategoryTypes(json?.data?.count || [])
+      } else {
+        setCategoryTypes([])
+      }
+
+    } catch (error) {
+      console.log("API Error:", error)
+      Alert.alert("Error", "Server not responding")
+
+    } finally {
+      setLoading(false)
+      setRefreshing(false) // 🔥 important for refresh
+    }
+  }
+
+  /* ================= PULL TO REFRESH ================= */
+  const onRefresh = useCallback(() => {
+    setRefreshing(true)
+    fetchCategoryTypes()
+  }, [])
+
+  /* ================= ADD LOCAL ================= */
   const handleAddType = () => {
     if (!typeName) return
 
     const newType = {
-      id: Date.now().toString(),
-      name: typeName,
-      description: description
+      id: Date.now(),
+      type_name: typeName,
+      descriptions: description
     }
 
-    setCategoryTypes([...categoryTypes, newType])
+    setCategoryTypes(prev => [newType, ...prev])
 
     setTypeName('')
     setDescription('')
@@ -41,8 +105,8 @@ const CategoryTypeList = () => {
   const renderItem = ({ item }) => (
     <View style={styles.card}>
       <View style={{ flex: 1 }}>
-        <Text style={styles.cardTitle}>{item.name}</Text>
-        <Text style={styles.cardDesc}>{item.description}</Text>
+        <Text style={styles.cardTitle}>{item.type_name}</Text>
+        <Text style={styles.cardDesc}>{item.descriptions}</Text>
       </View>
       <MaterialIcons name="chevron-right" size={24} color="#999" />
     </View>
@@ -53,12 +117,32 @@ const CategoryTypeList = () => {
 
       <Text style={styles.header}>Category Types</Text>
 
-      <FlatList
-        data={categoryTypes}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-      />
+      {loading && !refreshing ? (
+        <ActivityIndicator size="large" color="#4A90E2" />
+      ) : (
+        <FlatList
+          data={categoryTypes}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+
+          /* 🔥 PULL TO REFRESH ADDED */
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#4A90E2"]}   // Android
+              tintColor="#4A90E2"    // iOS
+            />
+          }
+
+          ListEmptyComponent={
+            <Text style={{ textAlign: 'center', marginTop: 40 }}>
+              No Category Types Found
+            </Text>
+          }
+        />
+      )}
 
       {/* Floating Add Button */}
       <TouchableOpacity
@@ -68,12 +152,8 @@ const CategoryTypeList = () => {
         <MaterialIcons name="add" size={30} color="#fff" />
       </TouchableOpacity>
 
-      {/* Modal Popup */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="slide"
-      >
+      {/* Modal */}
+      <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
 

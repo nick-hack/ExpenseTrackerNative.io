@@ -4,33 +4,42 @@
     "slug": "exp-track",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+
+    "icon": "./assets/logoTracker.png",
+
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/logoTracker.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+
     "ios": {
       "supportsTablet": true
     },
+
     "android": {
+      "usesCleartextTraffic": true,
+      "permissions": ["INTERNET"],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logoTracker.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.aniket108sorganization.exptrack"
     },
+
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/logoTracker.png"
     },
+
     "extra": {
       "eas": {
         "projectId": "9af00e32-d68a-49fd-9d24-56478ec71598"
       }
     },
+
     "owner": "aniket108s-organization"
   }
 }
