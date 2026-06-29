@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BASE_URL } from "../../Config";
 
 /* ================= INPUT ================= */
@@ -91,70 +92,108 @@ const EmployeeRegister = ({ navigation }) => {
 
     return true;
   };
+  const handlePhoneChange = (text) => {
+  // remove all non-numeric characters
+  const cleaned = text.replace(/[^0-9]/g, "");
+
+  // allow only 10 digits
+  if (cleaned.length < 11) {
+    setPhone(cleaned);
+  }
+};
 
   /* ================= REGISTER API ================= */
-  const handleRegister = async () => {
-    if (!validate()) return;
+const handleRegister = async () => {
+  if (!validate()) return;
 
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const otp = Math.floor(1000 + Math.random() * 9000);
+    const otp = Math.floor(1000 + Math.random() * 9000);
 
-      const body = {
-        first_name: firstName,
-        middle_name: middleName || "",
-        last_name: lastName,
-        email_id: email,
-        email_verified_at: 0,
-        mobile_no: phone,
-        mobile_at_verified: 0,
-        otp: otp,
-        is_verified_otp: 0,
-        passwords: password,
-        is_role: null,
-        country_id: 1,
-        city_id: 1,
-        currency_id: 1,
-        profile_pic: null,
-      };
+    const body = {
+      first_name: firstName,
+      middle_name: middleName || "",
+      last_name: lastName,
+      email_id: email,
+      email_verified_at: 0,
+      mobile_no: phone,
+      mobile_at_verified: 0,
+      otp: otp,
+      is_verified_otp: 0,
+      passwords: password, // plain password (important)
+      is_role: null,
+      country_id: 1,
+      city_id: 1,
+      currency_id: 1,
+      profile_pic: null,
+    };
 
-      const res = await fetch(`${BASE_URL}/InsertUser`, {
+    const res = await fetch(`${BASE_URL}/InsertUser`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const json = await res.json();
+
+    console.log("REGISTER RESPONSE:", json);
+
+    // ✅ FIX: correct parsing
+    const user = json?.data?.[0];
+
+    if (user?.status === 1) {
+      Alert.alert("Success", user.message);
+
+      // ================= AUTO LOGIN =================
+      const loginRes = await fetch(`${BASE_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Accept: "application/json",
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          email_id: email,
+          passwords: password, // user typed password
+        }),
       });
 
-      const json = await res.json();
+      const loginJson = await loginRes.json();
+      console.log("LOGIN RESPONSE:", loginJson);
 
-      console.log("REGISTER RESPONSE:", json);
+      if (loginJson?.status === 200 || loginJson?.token) {
+        await AsyncStorage.setItem("token", loginJson.token);
 
-      if (json?.status === 200) {
-        Alert.alert("Success", "Registered Successfully 🎉");
+        await AsyncStorage.setItem("user_id", String(user.user_id));
+        await AsyncStorage.setItem("email", user.email_id);
+        await AsyncStorage.setItem("phone", user.mobile_no);
 
+        // ✅ GO TO HOME (Tabs)
         navigation.reset({
           index: 0,
           routes: [{ name: "Tabs" }],
         });
       } else {
-        Alert.alert("Error", json?.message || "Registration failed");
+        Alert.alert("Login Failed", loginJson?.message || "Login error");
+        navigation.navigate("Login");
       }
-    } catch (e) {
-      console.log(e);
-      Alert.alert("Error", "Server error");
-    } finally {
-      setLoading(false);
+    } else {
+      Alert.alert("Error", user?.message || "Registration failed");
     }
-  };
+  } catch (e) {
+    console.log(e);
+    Alert.alert("Error", "Server error");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <SafeAreaView style={styles.safeContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#4A90E2" />
 
-      {/* HEADER */}
       <LinearGradient colors={["#4A90E2", "#6C63FF"]} style={styles.header}>
         <Text style={styles.headerTitle}>Employee Register</Text>
       </LinearGradient>
@@ -163,19 +202,19 @@ const EmployeeRegister = ({ navigation }) => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        <ScrollView
-          ref={scrollRef}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 120 }}
-        >
-          {/* INPUT FIELDS */}
+        <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
           <InputField icon="person" placeholder="First Name" value={firstName} onChangeText={setFirstName} />
           <InputField icon="person-outline" placeholder="Middle Name" value={middleName} onChangeText={setMiddleName} />
           <InputField icon="person" placeholder="Last Name" value={lastName} onChangeText={setLastName} />
 
           <InputField icon="email" placeholder="Email" value={email} onChangeText={setEmail} />
-          <InputField icon="phone" placeholder="Mobile Number" value={phone} onChangeText={setPhone} />
-
+          {/* <InputField icon="phone" placeholder="Mobile Number" value={phone} onChangeText={setPhone} /> */}
+<InputField
+  icon="phone"
+  placeholder="Mobile Number"
+  value={phone}
+  onChangeText={handlePhoneChange}
+/>
           <InputField
             icon="lock"
             placeholder="Password"
@@ -196,7 +235,6 @@ const EmployeeRegister = ({ navigation }) => {
             showEye
           />
 
-          {/* REGISTER BUTTON */}
           <TouchableOpacity
             style={styles.registerButton}
             onPress={handleRegister}
@@ -209,14 +247,10 @@ const EmployeeRegister = ({ navigation }) => {
             )}
           </TouchableOpacity>
 
-          {/* 🔥 BEAUTIFUL LOGIN LINK */}
           <View style={styles.loginLinkContainer}>
-            <Text style={styles.loginHintText}>
-              Already have an account?
-            </Text>
+            <Text style={styles.loginHintText}>Already have an account?</Text>
 
             <TouchableOpacity
-              activeOpacity={0.7}
               onPress={() => navigation.navigate("Login")}
               style={styles.loginLinkButton}
             >
