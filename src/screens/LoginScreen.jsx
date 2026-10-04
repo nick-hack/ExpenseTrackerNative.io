@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   StyleSheet,
   Text,
@@ -16,8 +16,11 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BASE_URL } from "../../Config";
+import { AuthContext } from "../contaxt/AuthContext";
 
 const LoginScreen = ({ navigation }) => {
+  const { login } = useContext(AuthContext);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,11 +65,14 @@ const LoginScreen = ({ navigation }) => {
       if (json.status === 200) {
         Alert.alert("Success", json.message);
 
+        // save token
         await AsyncStorage.setItem("token", json.token);
         await AsyncStorage.setItem("savedEmail", email);
         await AsyncStorage.setItem("savedPassword", password);
 
-        navigation.replace("Tabs");
+        // 🔥 IMPORTANT FIX
+        login(json.token);
+
       } else {
         Alert.alert("Login Failed", json.message);
       }
@@ -126,9 +132,7 @@ const LoginScreen = ({ navigation }) => {
                 onChangeText={setPassword}
               />
 
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-              >
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <MaterialIcons
                   name={showPassword ? "visibility" : "visibility-off"}
                   size={22}
@@ -148,9 +152,8 @@ const LoginScreen = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
 
-            {/* LINKS SECTION */}
+            {/* LINKS */}
             <View style={styles.linkContainer}>
-              {/* 🔥 FIXED HERE */}
               <TouchableOpacity
                 style={styles.linkBox}
                 onPress={() => navigation.navigate("Register")}
@@ -161,9 +164,7 @@ const LoginScreen = ({ navigation }) => {
 
               <TouchableOpacity
                 style={styles.linkBox}
-                onPress={() =>
-                  navigation.navigate("ForgotPassword")
-                }
+                onPress={() => navigation.navigate("ForgotPassword")}
               >
                 <MaterialIcons name="lock-reset" size={16} color="#4A90E2" />
                 <Text style={styles.linkText}>Forgot</Text>
@@ -171,9 +172,7 @@ const LoginScreen = ({ navigation }) => {
 
               <TouchableOpacity
                 style={styles.linkBox}
-                onPress={() =>
-                  navigation.navigate("MobileLogin")
-                }
+                onPress={() => navigation.navigate("MobileLogin")}
               >
                 <MaterialIcons
                   name="phone-android"

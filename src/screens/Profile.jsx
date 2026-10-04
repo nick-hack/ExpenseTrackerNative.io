@@ -9,10 +9,12 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  BackHandler,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { CommonActions } from "@react-navigation/native";
 import { BASE_URL } from "../../Config";
 
 const Profile = ({ navigation }) => {
@@ -31,12 +33,15 @@ const Profile = ({ navigation }) => {
       const token = await AsyncStorage.getItem("token");
 
       if (!token) {
-        Alert.alert("Session Expired", "Please login again");
-        navigation.replace("Login");
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "Login" }],
+          })
+        );
         return;
       }
 
-      /* ================= USER API ================= */
       const userResponse = await fetch(`${BASE_URL}/getUserById`, {
         method: "GET",
         headers: {
@@ -51,7 +56,6 @@ const Profile = ({ navigation }) => {
         setUser(userJson.data[0]);
       }
 
-      /* ================= EXPENSE SUMMARY API ================= */
       const expenseResponse = await fetch(
         `${BASE_URL}/getAllExpensesByUserId`,
         {
@@ -68,14 +72,35 @@ const Profile = ({ navigation }) => {
       if (expenseJson?.status === 200) {
         setSummary(expenseJson.data);
       }
-
     } catch (error) {
-      console.log("Network Error:", error);
-      Alert.alert("Error", "Unable to connect to server");
+      Alert.alert("Error", "Server not reachable");
     } finally {
       setLoading(false);
     }
   };
+
+  const handleLogout = async () => {
+    try {
+      // 1. clear storage
+      await AsyncStorage.clear();
+
+      // 2. reset navigation to Welcome screen
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Welcome" }],
+        })
+      );
+
+      // ❌ DO NOT USE THIS (it closes app)
+      // BackHandler.exitApp();
+
+    } catch (error) {
+      console.log("Logout error:", error);
+      Alert.alert("Error", "Logout failed");
+    }
+  };
+
 
   const MenuItem = ({ icon, title, onPress, color = "#2C3E50" }) => (
     <TouchableOpacity style={styles.menuItem} onPress={onPress}>
@@ -101,14 +126,11 @@ const Profile = ({ navigation }) => {
     <SafeAreaView style={styles.safeContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#4A90E2" />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* HEADER */}
+      <ScrollView>
         <View style={styles.header}>
           <Image
             source={{
-              uri:
-                user?.profile_pic ||
-                "https://i.pravatar.cc/150?img=12",
+              uri: user?.profile_pic || "https://i.pravatar.cc/150?img=12",
             }}
             style={styles.avatar}
           />
@@ -120,71 +142,29 @@ const Profile = ({ navigation }) => {
           <Text style={styles.email}>
             {user?.email_id} | {user?.mobile_no}
           </Text>
-
-     <TouchableOpacity
-        style={styles.editBtn}
-        onPress={() => navigation.navigate("EditProfile", { userData: user })}
-      >
-        <MaterialIcons name="edit" size={18} color="#fff" />
-        <Text style={styles.editText}>Edit Profile</Text>
-      </TouchableOpacity>
         </View>
 
-        {/* STATS SECTION */}
-        {summary && (
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <MaterialIcons name="trending-up" size={24} color="#2ECC71" />
-              <Text style={styles.statLabel}>Income</Text>
-              <Text style={[styles.statValue, { color: "#2ECC71" }]}>
-                ₹ {Number(summary.totalIncome).toLocaleString("en-IN")}
-              </Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <MaterialIcons name="trending-down" size={24} color="#E74C3C" />
-              <Text style={styles.statLabel}>Expense</Text>
-              <Text style={[styles.statValue, { color: "#E74C3C" }]}>
-                ₹ {Number(summary.totalExpense).toLocaleString("en-IN")}
-              </Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <MaterialIcons
-                name="account-balance-wallet"
-                size={24}
-                color="#4A90E2"
-              />
-              <Text style={styles.statLabel}>Balance</Text>
-              <Text style={[styles.statValue, { color: "#4A90E2" }]}>
-                ₹ {Number(summary.Remaining_Amount).toLocaleString("en-IN")}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* MENU */}
         <View style={styles.menuContainer}>
-          <MenuItem icon="person" title="Account Settings" />
-          <MenuItem
+          {/* <MenuItem icon="person" title="Account Settings" onPress={() => navigation.navigate("AccountSettings")} /> */}
+          <MenuItem icon="person" title="Account Settings"  />
+    
+           <MenuItem
             icon="assessment"
             title="Reports"
             onPress={() => navigation.navigate("Reports")}
           />
-          <MenuItem icon="lock" title="Change Password" />
-          <MenuItem icon="notifications" title="Notification Settings" />
-          <MenuItem icon="security" title="Privacy & Security" />
-          <MenuItem icon="help-outline" title="Help & Support" />
-          <MenuItem icon="info-outline" title="About App" />
+          <MenuItem icon="lock" title="Change Password" onPress={() => navigation.navigate("ChangePassword")}/>
+          <MenuItem icon="notifications" title="Notification Settings" onPress={() => navigation.navigate("NotificationSettings")} />
+          <MenuItem icon="security" title="Privacy & Security" onPress={() => navigation.navigate("PrivacySecurity")} />
+          <MenuItem icon="help-outline" title="Help & Support" onPress={() => navigation.navigate("HelpSupport")} />
+          <MenuItem icon="info-outline" title="About App" 
+           onPress={() => navigation.navigate("AboutApp")}/>
 
           <MenuItem
             icon="logout"
             title="Logout"
             color="#E74C3C"
-            onPress={async () => {
-              await AsyncStorage.removeItem("token");
-              navigation.replace("Login");
-            }}
+            onPress={handleLogout}   // ✅ FIXED HERE
           />
         </View>
       </ScrollView>
@@ -195,115 +175,62 @@ const Profile = ({ navigation }) => {
 export default Profile;
 
 const styles = StyleSheet.create({
-
   safeContainer: {
     flex: 1,
-    backgroundColor: '#4A90E2'
+    backgroundColor: "#4A90E2",
   },
-
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 30,
-    backgroundColor: '#4A90E2',
+    backgroundColor: "#4A90E2",
   },
-
   avatar: {
     width: 110,
     height: 110,
     borderRadius: 60,
     borderWidth: 4,
-    borderColor: '#fff',
-    marginBottom: 15
+    borderColor: "#fff",
+    marginBottom: 15,
   },
-
   name: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#fff'
+    fontWeight: "bold",
+    color: "#fff",
   },
-
   email: {
     fontSize: 14,
-    color: '#E0E0E0',
-    marginBottom: 15
+    color: "#E0E0E0",
+    marginBottom: 15,
   },
-
-  editBtn: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 25,
-    alignItems: 'center',
-    gap: 5
-  },
-
-  editText: {
-    color: '#fff',
-    fontWeight: '600'
-  },
-
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#F4F6FA',
-    marginTop: -20,
-    paddingVertical: 25,
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25
-  },
-
-  statCard: {
-    alignItems: 'center'
-  },
-
-  statLabel: {
-    marginTop: 6,
-    fontSize: 13,
-    color: '#7F8C8D'
-  },
-
-  statValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginTop: 4
-  },
-
   menuContainer: {
-    backgroundColor: '#F4F6FA',
+    backgroundColor: "#F4F6FA",
     paddingHorizontal: 20,
-    paddingBottom: 30
+    paddingBottom: 30,
   },
-
   menuItem: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 18,
     borderRadius: 18,
     marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    elevation: 2
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-
   menuLeft: {
-    flexDirection: 'row',
-    alignItems: 'center'
+    flexDirection: "row",
+    alignItems: "center",
   },
-
   iconBox: {
     width: 35,
     height: 35,
     borderRadius: 18,
-    backgroundColor: '#EAF2FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12
+    backgroundColor: "#EAF2FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
   },
-
   menuText: {
     fontSize: 15,
-    fontWeight: '600'
-  }
-
-})
+    fontWeight: "600",
+  },
+});
